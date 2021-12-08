@@ -4,7 +4,8 @@ import "testing"
 
 func Test_totalFuel(t *testing.T) {
 	type args struct {
-		line string
+		line     string
+		fuelFunc func(string) int
 	}
 	tests := []struct {
 		name string
@@ -15,13 +16,22 @@ func Test_totalFuel(t *testing.T) {
 			"test 1",
 			args{
 				"16,1,2,0,4,2,7,1,2,14",
+				totalFuel,
 			},
 			37,
+		},
+		{
+			"test 1",
+			args{
+				"16,1,2,0,4,2,7,1,2,14",
+				gaussFuel,
+			},
+			168,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := totalFuel(tt.args.line); got != tt.want {
+			if got := tt.args.fuelFunc(tt.args.line); got != tt.want {
 				t.Errorf("totalFuel() = %v, want %v", got, tt.want)
 			}
 		})

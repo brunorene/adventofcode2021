@@ -38,14 +38,38 @@ func totalFuel(line string) int {
 	return sum
 }
 
+func gaussFuel(line string) int {
+	numbers := getSortedPositions(line)
+
+	minSum := math.MaxInt
+
+	for pivot := 0; pivot <= numbers[len(numbers)-1]; pivot++ {
+		sum := 0
+
+		for _, n := range numbers {
+			diff := int(math.Abs(float64(n - pivot)))
+			sum += diff * (diff + 1) / 2
+		}
+
+		if sum < minSum {
+			minSum = sum
+		}
+	}
+
+	return minSum
+}
+
 func part1() {
 	lines := readInput("input.txt")
 
-	fmt.Printf("%d", totalFuel(lines[0]))
+	fmt.Printf("%d\n", totalFuel(lines[0]))
 }
 
 func part2() {
-	// lines := readInput("input.txt")
+	lines := readInput("input.txt")
+
+	fmt.Printf("%d\n", gaussFuel(lines[0]))
+
 }
 
 func main() {
