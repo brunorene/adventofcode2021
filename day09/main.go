@@ -57,36 +57,32 @@ func sumLowValues(lines []string) (sum int) {
 	return
 }
 
-func spread(x, y int, level byte, lines []string) (size int) {
-	if lines[y][x] != level {
-		return 0
-	}
+func spread(x, y int, lines []string) (size int) {
 	size++
+	current := lines[y][x]
 	ar := []byte(lines[y])
 	ar[x] = '9'
 	lines[y] = string(ar)
-	if level < '8' {
-		if x < len(lines[0])-1 {
-			size += spread(x+1, y, level+1, lines)
-		}
-		if x > 0 {
-			size += spread(x-1, y, level+1, lines)
-		}
-		if y < len(lines)-1 {
-			size += spread(x, y+1, level+1, lines)
-		}
-		if y > 0 {
-			size += spread(x, y-1, level+1, lines)
-		}
+	if x < len(lines[0])-1 && lines[y][x+1] > current && lines[y][x+1] < '9' {
+		size += spread(x+1, y, lines)
+	}
+	if x > 0 && lines[y][x-1] > current && lines[y][x-1] < '9' {
+		size += spread(x-1, y, lines)
+	}
+	if y < len(lines)-1 && lines[y+1][x] > current && lines[y+1][x] < '9' {
+		size += spread(x, y+1, lines)
+	}
+	if y > 0 && lines[y-1][x] > current && lines[y-1][x] < '9' {
+		size += spread(x, y-1, lines)
 	}
 	return size
 }
 
 func basins(lines []string) (mult int) {
-	xs, ys, vals := getLowValues(lines)
+	xs, ys, _ := getLowValues(lines)
 	sizes := []int{}
 	for idx := range xs {
-		sizes = append(sizes, spread(xs[idx], ys[idx], vals[idx], lines))
+		sizes = append(sizes, spread(xs[idx], ys[idx], lines))
 	}
 
 	sort.Sort(sort.Reverse(sort.IntSlice(sizes)))
