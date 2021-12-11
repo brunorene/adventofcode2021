@@ -83,8 +83,7 @@ func doAllSteps(lines []string, steps int) (total int) {
 	return
 }
 
-func (g grid) increaseNeighbours(x, y int) bool {
-	changed := false
+func (g grid) increaseNeighbours(x, y int) (changed bool) {
 	for _, currY := range []int{y - 1, y, y + 1} {
 		for _, currX := range []int{x - 1, x, x + 1} {
 			if (currX != x || currY != y) &&
@@ -99,7 +98,7 @@ func (g grid) increaseNeighbours(x, y int) bool {
 		}
 	}
 
-	return changed
+	return
 }
 
 func syncStep(lines []string) (flashStep int) {
