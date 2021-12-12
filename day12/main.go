@@ -46,14 +46,13 @@ func newCaves(lines []string) (caves map[string]cave) {
 	return
 }
 
-func walk(current cave, caves map[string]cave, smallVisited map[string]int, canVisit func(map[string]int) bool) int {
+func walk(current cave, caves map[string]cave, smallVisited map[string]int, canVisit func(map[string]int) bool) (sum int) {
 	switch {
 	case current.name == "start":
-		sum := 0
 		for neighbourName := range current.neighbours {
 			sum += walk(caves[neighbourName], caves, smallVisited, canVisit)
 		}
-		return sum
+		return
 	case current.name == "end":
 		return 1
 	case isLower.MatchString(current.name):
@@ -70,21 +69,19 @@ func walk(current cave, caves map[string]cave, smallVisited map[string]int, canV
 		} else {
 			newVisited[current.name] = 1
 		}
-		sum := 0
 		for neighbourName := range current.neighbours {
 			if neighbourName != "start" {
 				sum += walk(caves[neighbourName], caves, newVisited, canVisit)
 			}
 		}
-		return sum
+		return
 	default: // isUpper
-		sum := 0
 		for neighbourName := range current.neighbours {
 			if neighbourName != "start" {
 				sum += walk(caves[neighbourName], caves, smallVisited, canVisit)
 			}
 		}
-		return sum
+		return
 	}
 }
 
