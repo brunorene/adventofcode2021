@@ -32,28 +32,17 @@ func steps(pair string, insertions map[string]string, level int, finalLevel int,
 	counters = make(map[rune]int64)
 
 	if finalLevel == level {
-		counters[rune(pair[0])] = 1
-		_, exists := counters[rune(pair[1])]
-		if !exists {
-			counters[rune(pair[1])] = 0
+		for _, p := range pair {
+			counters[p]++
 		}
-		counters[rune(pair[1])]++
 
 		return
 	}
 
-	next0 := pair[0:1] + insertions[pair]
-	next1 := insertions[pair] + pair[1:]
-
-	for k, v := range steps(next0, insertions, level+1, finalLevel, cache) {
-		counters[k] = v
-	}
-	for k, v := range steps(next1, insertions, level+1, finalLevel, cache) {
-		_, exists := counters[k]
-		if !exists {
-			counters[k] = 0
+	for _, next := range []string{pair[0:1] + insertions[pair], insertions[pair] + pair[1:]} {
+		for k, v := range steps(next, insertions, level+1, finalLevel, cache) {
+			counters[k] += v
 		}
-		counters[k] += v
 	}
 
 	cache[fmt.Sprintf("%s,%d", pair, level)] = counters
@@ -67,16 +56,9 @@ func mostMinusless(lines []string, stepCount int) int64 {
 	cache := make(map[string]map[rune]int64)
 
 	for i := 0; i < len(template)-1; i++ {
-		current := steps(template[i:i+2], insertions, 0, stepCount, cache)
-
-		for k, v := range current {
-			_, exists := counters[k]
-			if !exists {
-				counters[k] = 0
-			}
+		for k, v := range steps(template[i:i+2], insertions, 0, stepCount, cache) {
 			counters[k] += v
 		}
-
 	}
 
 	counters[rune(template[len(template)-1])]++
