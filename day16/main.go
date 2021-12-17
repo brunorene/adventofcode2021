@@ -5,18 +5,36 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
+
+	"github.com/brunorene/adventofcode2021/day16/packet"
 )
 
-// VVVTTT(1NNNN)*0NNNN[0]*
-// TTT = 100 LITERAL - (NNNN)*NNNN BINARY NUMBER
+func sumNestedVersions(parent packet.Packet) (sum int) {
+	for _, p := range parent.GetChildren() {
+		switch p.GetType() {
+		case packet.Value:
+			sum += int(p.GetVersion())
+		default:
+			sum += sumNestedVersions(p)
+		}
+	}
 
-func toBinary(hex string) (bin string) {
-	for _, c := range hex {
-		n, err := strconv.ParseUint(string(c), 16, 32)
-		check(err)
-		bin += strconv.FormatUint(n, 2)
+	return sum + int(parent.GetVersion())
+}
+
+func sumVersions(hex string) (sum int) {
+	binary := packet.ToBinary(hex)
+
+	message, _ := packet.NewMessage(binary)
+
+	for _, p := range message {
+		switch p.GetType() {
+		case packet.Value:
+			sum += int(p.GetVersion())
+		default:
+			sum += sumNestedVersions(p)
+		}
 	}
 
 	return
@@ -25,13 +43,13 @@ func toBinary(hex string) (bin string) {
 func part1() {
 	lines := readInput("input.txt")
 
-	fmt.Printf("%d\n", len(lines))
+	fmt.Printf("%d\n", sumVersions(lines[0]))
 }
 
 func part2() {
 	lines := readInput("input.txt")
 
-	fmt.Printf("%d\n", len(lines))
+	fmt.Printf("%v\n", packet.MessageResults(packet.NewMessage(packet.ToBinary(lines[0]))))
 }
 
 func main() {
