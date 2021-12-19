@@ -13,7 +13,60 @@ const (
 )
 
 type motionData struct {
-	velocityX, velocityY, insideRegionX, insideRegionY, time int
+	velocity, finalVelocity, displacement, time int
+}
+
+func positionsInsideY(initialVel, min, max int) (matches []motionData) {
+	pos := 0
+	vel := initialVel
+	for t := 1; ; t++ {
+		pos += vel
+		if pos < min {
+			break
+		}
+		if pos >= min && pos <= max {
+			matches = append(matches, motionData{initialVel, vel, pos, t})
+		}
+		vel--
+	}
+
+	return
+}
+
+func positionsInsideX(initialVel, min, max int) (matches []motionData) {
+	pos := 0
+	vel := initialVel
+	for t := 1; ; t++ {
+		pos += vel
+		if pos >= min && pos <= max {
+			matches = append(matches, motionData{initialVel, vel, pos, t})
+			if vel == 0 {
+				for time := t; time < 1000; time++ {
+					matches = append(matches, motionData{initialVel, vel, pos, time})
+				}
+			}
+		}
+		vel--
+		if vel < 0 {
+			break
+		}
+	}
+
+	return
+}
+
+func allCandidates(min, max int, inside func(vel, min, max int) []motionData) (candidates map[motionData]struct{}) {
+	candidates = make(map[motionData]struct{})
+	for v := -1000; v < 1000; v++ {
+		data := inside(v, min, max)
+		if len(data) > 0 {
+			for _, d := range data {
+				candidates[d] = struct{}{}
+			}
+		}
+	}
+
+	return
 }
 
 func displacement(velocity int, time int) int {
@@ -21,81 +74,16 @@ func displacement(velocity int, time int) int {
 	return velocity*time - (int(math.Pow(float64(time), 2))-time)/2
 }
 
-func velocity(displacement, time int) (v int, isInteger bool) {
-	if (2*displacement+int(math.Pow(float64(time), 2))-time)%(2*time) != 0 {
-		return 0, false
-	}
-	return (2*displacement + int(math.Pow(float64(time), 2)) - time) / (2 * time), true
-}
-
 func timeAtTop(velocity int) int {
 	// v + 1/2 => floor(v)
 	return velocity
 }
 
-func between(current, start, end int) bool {
-	return current >= start && current <= end
-}
-
-func velocityCandidates(min, max int) (data []motionData) {
-	return data
-}
-
-func candidatesMatchTimeAxis(mainAxis []motionData, match []motionData) (mainMatch map[motionData]int) {
-	mainMatch = make(map[motionData]int)
-	for _, main := range mainAxis {
-		for _, other := range match {
-			if main.time == other.time {
-				mainMatch[main]++
-			}
-		}
-	}
-
-	return
-}
-
-func distinctInitialVelocity(minX, maxX, minY, maxY int) (dataFinal map[motionData]struct{}) {
-	dataFinal = make(map[motionData]struct{})
-	var dataY []motionData
-	for m := minY; m <= maxY; m++ {
-		for t := 1; t < 1000; t++ {
-			vel, isInt := velocity(m, t)
-			if isInt {
-				dataY = append(dataY, motionData{
-					velocityY:     vel,
-					insideRegionY: m,
-					time:          t,
-				})
-			}
-		}
-	}
-	for m := minX; m <= maxX; m++ {
-		for t := 1; t < 1000; t++ {
-			vel, isInt := velocity(m, t)
-			if isInt {
-				for _, dataY := range dataY {
-					if dataY.time == t {
-						dataFinal[motionData{
-							velocityX:     vel,
-							velocityY:     dataY.velocityY,
-							insideRegionX: m,
-							insideRegionY: dataY.insideRegionY,
-							time:          t,
-						}] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-
-	return
-}
-
-func highestY(minX, maxX, minY, maxY int) (max int) {
-	dataFinal := distinctInitialVelocity(minX, maxX, minY, maxY)
+func highestY(minY, maxY int) (max int) {
+	dataFinal := allCandidates(minY, maxY, positionsInsideY)
 	for probeY := range dataFinal {
-		top := timeAtTop(probeY.velocityY)
-		pos := displacement(probeY.velocityY, top)
+		top := timeAtTop(probeY.velocity)
+		pos := displacement(probeY.velocity, top)
 		if pos > max {
 			max = pos
 		}
@@ -104,12 +92,29 @@ func highestY(minX, maxX, minY, maxY int) (max int) {
 	return max
 }
 
-func lenDistinctInitialVelocity(minX, maxX, minY, maxY int) (count int) {
-	return len(distinctInitialVelocity(minX, maxX, minY, maxY))
+func distinctInitialVelocity(minX, maxX, minY, maxY int) (distinct map[string]int) {
+	distinct = make(map[string]int)
+	allX := allCandidates(minX, maxX, positionsInsideX)
+	allY := allCandidates(minY, maxY, positionsInsideY)
+
+	for mX := range allX {
+		for mY := range allY {
+			if mX.time == mY.time {
+				distinct[fmt.Sprintf("%d,%d", mX.velocity, mY.velocity)]++
+			}
+		}
+	}
+
+	return
+}
+
+func lenDistinctInitialVelocity(minX, maxX, minY, maxY int) int {
+	vels := distinctInitialVelocity(minX, maxX, minY, maxY)
+	return len(vels)
 }
 
 func part1() {
-	fmt.Printf("%d\n", highestY(MinX, MaxX, MinY, MaxY))
+	fmt.Printf("%d\n", highestY(MinY, MaxY))
 }
 
 func part2() {
