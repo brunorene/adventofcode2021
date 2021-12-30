@@ -3,224 +3,96 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
-	"time"
 )
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	fmt.Printf("%s took %s\n", name, elapsed)
+// func timeTrack(start time.Time, name string) {
+// 	elapsed := time.Since(start)
+// 	fmt.Printf("%s took %s\n", name, elapsed)
+// }
+
+type priorityQueue struct {
+	queue []*path
 }
 
-// type amphiPods struct {
-// 	space    floor
-// 	distance int
-// }
+func (pq priorityQueue) len() int {
+	return len(pq.queue)
+}
 
-// type path struct {
-// 	start, end, podType int
-// }
+func (pq *priorityQueue) push(p *path) {
+	pq.queue = append(pq.queue, p)
+	sort.Slice(pq.queue, func(i, j int) bool { return pq.queue[i].cost() > pq.queue[j].cost() })
+}
 
-// func (p path) cost() int {
-// 	return int(math.Pow10(p.podType/10-1)) * p.distance()
-// }
+func (pq *priorityQueue) pop() (item *path) {
+	item = pq.queue[len(pq.queue)-1]
+	pq.queue[len(pq.queue)-1] = nil
+	pq.queue = pq.queue[:len(pq.queue)-1]
+	return
+}
 
-// func (p path) distance() int {
-// 	return len(p.steps())
-// }
+func dijkstra(start floor) (distance int) {
+	next := priorityQueue{}
+	next.push(&path{start: start, end: start})
+	cacheDistance := make(map[string]int)
+	var exists bool
 
-// func (ap amphiPods) possiblePaths(start, podType int) (paths []path) {
-// 	defer timeTrack(time.Now(), "possiblePaths")
-// 	paths = []path{}
+	for next.len() > 0 {
+		current := next.pop()
 
-// 	// if pod is already at home
-// 	if start/10 == podType/10 {
-// 		if start%podType == 2 || (start%podType == 1 && ap.typesPerPosition[start+1] == podType) {
+		validNeighbours := (*current).end.neighbours()
 
-// 			return
-// 		}
-// 	}
+		fmt.Println(current.accumulatedDistance, next.len(), len(validNeighbours))
+		fmt.Println(current)
+		for _, neighbour := range validNeighbours {
+			neighbour.accumulatedDistance, exists = cacheDistance[neighbour.hash()]
+			if !exists {
+				neighbour.accumulatedDistance = math.MaxInt
+			}
 
-// 	// in the hallway
-// 	if start <= 10 {
-// 		if (path{start, podType + 1, podType}).isClear(ap) {
-// 			paths = append(paths, path{start, podType + 1, podType})
-// 		}
-// 		if (path{start, podType + 2, podType}).isClear(ap) {
-// 			paths = append(paths, path{start, podType + 2, podType})
-// 		}
+			newDistance := current.accumulatedDistance + neighbour.cost()
 
-// 		return
-// 	}
-// 	// in rooms
-// 	_, entryRoomOccupied := ap.typesPerPosition[podType+1]
-// 	_, deepRoomOccupied := ap.typesPerPosition[podType+2]
-// 	// straight to the end
-// 	if !deepRoomOccupied {
-// 		if (path{start, podType + 2, podType}).isClear(ap) {
-// 			paths = append(paths, path{start, podType + 2, podType})
-// 		}
+			if newDistance < neighbour.accumulatedDistance {
+				neighbour.accumulatedDistance = newDistance
+				cacheDistance[neighbour.hash()] = newDistance
 
-// 		return
-// 	}
-// 	if !entryRoomOccupied && ap.typesPerPosition[podType+2] == podType {
-// 		if (path{start, podType + 1, podType}).isClear(ap) {
-// 			paths = append(paths, path{start, podType + 1, podType})
-// 		}
+				if neighbour.allHome() {
+					fmt.Println("******")
+					fmt.Println(neighbour.accumulatedDistance)
+					fmt.Println(neighbour)
+					return neighbour.accumulatedDistance
+				}
 
-// 		return
-// 	}
-// 	// moving out to the hallway
-// 	for _, end := range []int{0, 1, 3, 5, 7, 9, 10} {
-// 		if (path{start, end, podType}).isClear(ap) {
-// 			paths = append(paths, path{start, end, podType})
-// 		}
-// 	}
+				next.push(&neighbour)
+			}
+		}
+	}
 
-// 	return
-// }
-
-// func (p path) isClear(ap amphiPods) bool {
-// 	walk := p.steps()
-
-// 	for endPosition := range ap.typesPerPosition {
-// 		for _, posPath := range walk {
-// 			if endPosition == posPath {
-// 				return false
-// 			}
-// 		}
-// 	}
-
-// 	return true
-// }
-
-// func (ap amphiPods) allHome() bool {
-// 	for position, podType := range ap.typesPerPosition {
-// 		if position/10 != podType/10 || position <= 10 {
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }
-
-// func (ap amphiPods) String() (out string) {
-// 	podStr := func(value int, exists bool) string {
-// 		if !exists {
-// 			return "."
-// 		}
-// 		switch value {
-// 		case 10:
-// 			return "A"
-// 		case 20:
-// 			return "B"
-// 		case 30:
-// 			return "C"
-// 		case 40:
-// 			return "D"
-// 		}
-// 		panic("unknown type: Strin()")
-// 	}
-// 	out = "#############\n"
-// 	out += "#"
-// 	for i := 0; i < 11; i++ {
-// 		val, exists := ap.typesPerPosition[i]
-// 		out += podStr(val, exists)
-// 	}
-// 	out += "#\n###"
-// 	for _, pos := range []int{11, 21, 31, 41} {
-// 		val, exists := ap.typesPerPosition[pos]
-// 		out += podStr(val, exists) + "#"
-// 	}
-// 	out += "##\n  #"
-// 	for _, pos := range []int{12, 22, 32, 42} {
-// 		val, exists := ap.typesPerPosition[pos]
-// 		out += podStr(val, exists) + "#"
-// 	}
-// 	out += "  \n  #########"
-
-// 	return
-// }
-
-// type priorityQueue struct {
-// 	queue []*amphiPods
-// }
-
-// func (pq priorityQueue) len() int {
-// 	return len(pq.queue)
-// }
-
-// func (pq *priorityQueue) push(item *amphiPods) {
-// 	defer timeTrack(time.Now(), "priority queue push")
-// 	pq.queue = append(pq.queue, item)
-// 	sort.Slice(pq.queue, func(i, j int) bool { return pq.queue[i].movingPod.cost() > pq.queue[j].movingPod.cost() })
-// }
-
-// func (pq *priorityQueue) pop() (item *amphiPods) {
-// 	defer timeTrack(time.Now(), "priority queue pop")
-// 	item = pq.queue[len(pq.queue)-1]
-// 	pq.queue[len(pq.queue)-1] = nil
-// 	pq.queue = pq.queue[:len(pq.queue)-1]
-// 	return
-// }
-
-// func neighbours(ap amphiPods) (nb []*amphiPods) {
-// 	defer timeTrack(time.Now(), "neighbours")
-// 	for position, podType := range ap.typesPerPosition {
-// 		moves := ap.possiblePaths(position, podType)
-// 		for _, path := range moves {
-// 			candidate := amphiPods{
-// 				make(map[int]int),
-// 				path,
-// 				math.MaxInt,
-// 			}
-// 			for otherPos, otherType := range ap.typesPerPosition {
-// 				candidate.typesPerPosition[otherPos] = otherType
-// 			}
-
-// 			delete(candidate.typesPerPosition, position)
-// 			candidate.typesPerPosition[path.end] = podType
-// 			nb = append(nb, &candidate)
-// 		}
-// 	}
-
-// 	return
-// }
-
-// func dijkstra(start *amphiPods) (distance int) {
-// 	next := priorityQueue{}
-// 	next.push(start)
-
-// 	for next.len() > 0 {
-// 		current := next.pop()
-
-// 		validNeighbours := neighbours(*current)
-
-// 		fmt.Println(current.distance, next.len(), len(validNeighbours))
-// 		fmt.Println(current)
-// 		for _, neighbour := range validNeighbours {
-// 			newDistance := current.distance + neighbour.movingPod.cost()
-
-// 			if newDistance < neighbour.distance {
-// 				neighbour.distance = newDistance
-
-// 				if neighbour.allHome() {
-// 					fmt.Println("******")
-// 					fmt.Println(neighbour.distance)
-// 					fmt.Println(neighbour)
-// 					return neighbour.distance
-// 				}
-
-// 				next.push(neighbour)
-// 			}
-// 		}
-// 	}
-
-// 	panic("no route found")
-// }
+	panic("no route found")
+}
 
 type floor [3][11]byte
+
+type path struct {
+	start               floor
+	end                 floor
+	memoizedCost        *int
+	accumulatedDistance int
+}
+
+func (p path) hash() (value string) {
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			value += fmt.Sprintf("%d,%d,", p.start[y][x], p.end[y][x])
+		}
+	}
+
+	return
+}
 
 func (f floor) copySpace(eraseX, eraseY int) floor {
 	newSpace := floor{}
@@ -267,15 +139,99 @@ func (f floor) String() (out string) {
 	return
 }
 
-func (start floor) pathClear(end floor) bool {
-	return true
+func (p path) String() string {
+	return p.end.String()
+}
+
+func (p path) allHome() bool {
+	return p.end[1][2] == 'A' &&
+		p.end[2][2] == 'A' &&
+		p.end[1][4] == 'B' &&
+		p.end[2][4] == 'B' &&
+		p.end[1][6] == 'C' &&
+		p.end[2][6] == 'C' &&
+		p.end[1][8] == 'D' &&
+		p.end[2][8] == 'D'
+}
+
+func (p path) diff() (x1, y1, x2, y2 int, isDiff bool) {
+	isDiff = true
+	count := 0
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			if p.start[y][x] != 0 && p.end[y][x] == 0 { // start
+				x1 = x
+				y1 = y
+				count++
+			}
+			if p.start[y][x] == 0 && p.end[y][x] != 0 { // end
+				x2 = x
+				y2 = y
+				count++
+			}
+			if count == 2 {
+				return
+			}
+		}
+	}
+
+	isDiff = false
+
+	return
+}
+
+func (p path) pathClear() bool {
+	x1, y1, x2, y2, isDiff := p.diff()
+
+	if !isDiff {
+		return false
+	}
+
+	// go up
+	if y1 == 2 && p.start[1][x1] != 0 {
+		return false
+	}
+
+	step := 1
+	if x2 < x1 {
+		step = -1
+	}
+
+	for x := x1 + step; x != x2; x += step {
+		if p.start[0][x] != 0 {
+			return false
+		}
+	}
+
+	if y2 == 2 {
+		if p.start[1][x2] != 0 {
+			return false
+		}
+	}
+
+	return p.start[y2][x2] == 0
+}
+
+func (p *path) cost() int {
+	x1, y1, x2, y2, isDiff := p.diff()
+	if !isDiff {
+		return 0
+	}
+
+	if p.memoizedCost == nil {
+		val := int(math.Abs(float64(x2-x1))+math.Abs(float64(y2-y1))) *
+			int(math.Pow10(int(p.start[y1][x1]-'A')))
+		p.memoizedCost = &val
+	}
+
+	return *p.memoizedCost
 }
 
 // xx,yy
 // 00,00 01,00 02,00 03,00 04,00 05,00 06,00 07,00 08,00 09,00 10,00
 // ##### ##### 02,01 ##### 04,01 ##### 06,01 ##### 08,01 ##### #####
 // ##### ##### 02,02 ##### 04,02 ##### 06,02 ##### 08,02 ##### #####
-func (f floor) neighbours() (out []floor) {
+func (f floor) neighbours() (out []path) {
 	for y := 0; y < 3; y++ {
 		for x := 0; x < 11; x++ {
 			// pod to be moved
@@ -298,7 +254,10 @@ func (f floor) neighbours() (out []floor) {
 						if f[0][h] == 0 {
 							nb := f.copySpace(x, y)
 							nb[0][h] = f[y][x]
-							out = append(out, nb)
+							p := path{start: f, end: nb}
+							if p.pathClear() {
+								out = append(out, p)
+							}
 						}
 					}
 				}
@@ -307,13 +266,19 @@ func (f floor) neighbours() (out []floor) {
 				if f[2][(f[y][x]-'A'+1)*2] == 0 {
 					nb := f.copySpace(x, y)
 					nb[2][(f[y][x]-'A'+1)*2] = f[y][x]
-					out = append(out, nb)
+					p := path{start: f, end: nb}
+					if p.pathClear() {
+						out = append(out, p)
+					}
 				}
 
 				if f[2][(f[y][x]-'A'+1)*2] == 0 {
 					nb := f.copySpace(x, y)
 					nb[1][(f[y][x]-'A'+1)*2] = f[y][x]
-					out = append(out, nb)
+					p := path{start: f, end: nb}
+					if p.pathClear() {
+						out = append(out, p)
+					}
 				}
 			}
 		}
@@ -348,18 +313,7 @@ func processInput(lines []string) (f floor) {
 func part1() {
 	lines := readInput("input.txt")
 
-	start := processInput(lines)
-
-	fmt.Println(start)
-
-	nbs := processInput(lines).neighbours()
-
-	fmt.Printf("**** %d\n", len(nbs))
-	fmt.Println()
-
-	for _, nb := range nbs {
-		fmt.Println(nb)
-	}
+	fmt.Printf("%d\n", dijkstra(processInput(lines)))
 }
 
 func part2() {
@@ -385,7 +339,9 @@ func readInput(filename string) (lines []string) {
 
 	file, err := os.Open(dir + filename)
 	check(err)
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
