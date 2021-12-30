@@ -10,84 +10,92 @@ import (
 	"strings"
 )
 
+type coords struct {
+	x, y int
+}
+
 type imageGrid struct {
-	algorithm              []int
-	image                  map[string]int
-	values                 map[string]int
-	minX, maxX, minY, maxY int
+	algorithm []int
+	image     map[coords]int
+	cellSum   map[coords]int
 }
 
-func (im imageGrid) cell(x, y int) int {
-	return im.image[fmt.Sprintf("%d%d", x, y)]
-}
-
-func (im imageGrid) value(x, y int) int {
-	return im.values[fmt.Sprintf("%d%d", x, y)]
-}
-
-func processInput(lines []string) (image imageGrid) {
+func calcAlgorithm(lines []string) int {
+	var algorithm []int
 	for _, c := range lines[0] {
 		switch c {
 		case '.':
-			image.algorithm = append(image.algorithm, 0)
+			algorithm = append(algorithm, 0)
 		case '#':
-			image.algorithm = append(image.algorithm, 1)
+			algorithm = append(algorithm, 1)
 		}
 	}
 
-	image.image = make(map[string]int)
-	image.minY = math.MaxInt
-	image.minX = math.MaxInt
+	image := make(map[coords]int)
 	for y, line := range lines[2:] {
 		for x, c := range line {
 			if c == '#' {
-				image.image[fmt.Sprintf("%d,%d", x, y)] = 1
-				if x < image.minX {
-					image.minX = x
-				}
-				if x > image.maxX {
-					image.maxX = x
-				}
-				if y < image.minY {
-					image.minY = y
-				}
-				if y > image.maxY {
-					image.maxY = y
-				}
+				// where this bit will be used
+				image[coords{x, y}] = 1
 			}
 		}
 	}
 
-	return
-}
+	// 1st time
+	for y := -10; y < 110; y++ {
+		for x := -10; x < 110; x++ {
+			cellSum := image[coords{x - 1, y - 1}] * int(math.Pow(2, 8))
+			cellSum += image[coords{x, y - 1}] * int(math.Pow(2, 7))
+			cellSum += image[coords{x + 1, y - 1}] * int(math.Pow(2, 6))
+			cellSum += image[coords{x - 1, y}] * int(math.Pow(2, 5))
+			cellSum += image[coords{x, y}] * int(math.Pow(2, 4))
+			cellSum += image[coords{x + 1, y}] * int(math.Pow(2, 3))
+			cellSum += image[coords{x - 1, y + 1}] * int(math.Pow(2, 2))
+			cellSum += image[coords{x, y + 1}] * int(math.Pow(2, 1))
+			cellSum += image[coords{x + 1, y + 1}] * int(math.Pow(2, 0))
 
-func (im *imageGrid) calculateValues() {
-	im.values = make(map[string]int)
-
-	for y := im.minY - 1; y <= im.maxY+1; y++ {
-		for x := im.minX - 1; x <= im.maxX+1; x++ {
-			binary := fmt.Sprintf("%d%d%d%d%d%d%d%d%d",
-				im.cell(x-1, y-1), im.cell(x, y-1), im.cell(x+1, y-1),
-				im.cell(x-1, y), im.cell(x, y), im.cell(x+1, y),
-				im.cell(x-1, y+1), im.cell(x, y+1), im.cell(x+1, y+1),
-			)
-
-			val, err := strconv.ParseInt(binary, 2, 32)
-			check(err)
-
-			im.values[fmt.Sprintf("%d,%d", x, y)] = int(val)
+			image[coords{x, y}] = algorithm[cellSum]
 		}
 	}
+
+	// for y := -11; y < 111; y++ {
+	// 	for x := -11; x < 111; x++ {
+	// 		if x == -11 || y == -11 || x == 111 || y == 111 {
+	// 			image[coords{x, y}] = 1
+	// 		}
+	// 	}
+	// }
+
+	// 2nd time
+	for y := -10; y < 110; y++ {
+		for x := -10; x < 110; x++ {
+			cellSum := image[coords{x - 1, y - 1}]*int(math.Pow(2, 0)) +
+				image[coords{x, y - 1}]*int(math.Pow(2, 1)) +
+				image[coords{x + 1, y - 1}]*int(math.Pow(2, 2)) +
+				image[coords{x - 1, y}]*int(math.Pow(2, 3)) +
+				image[coords{x, y}]*int(math.Pow(2, 4)) +
+				image[coords{x + 1, y}]*int(math.Pow(2, 5)) +
+				image[coords{x - 1, y + 1}]*int(math.Pow(2, 6)) +
+				image[coords{x, y + 1}]*int(math.Pow(2, 7)) +
+				image[coords{x + 1, y + 1}]*int(math.Pow(2, 8))
+
+			image[coords{x, y}] = algorithm[cellSum]
+		}
+	}
+
+	// count lights
+	var sum int
+	for _, v := range image {
+		sum += v
+	}
+
+	return sum
 }
 
 func part1() {
 	lines := readInput("input.txt")
 
-	img := processInput(lines)
-	img.calculateValues()
-	fmt.Printf("%+v", img)
-
-	fmt.Printf("%d\n", len(lines))
+	fmt.Printf("%d\n", calcAlgorithm(lines))
 }
 
 func part2() {
