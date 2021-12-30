@@ -3,309 +3,339 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
+	"time"
 )
 
-// #############
-// #0123456789T#
-// ###1#1#1#1###
-//   #2#2#2#2#
-//   #########
-//    1 2 3 4
-
-type amphiPods struct {
-	typesPerPosition map[int]int
-	movedPodPosition int
-	path             []int
-	distance         int
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	fmt.Printf("%s took %s\n", name, elapsed)
 }
 
-func (ap amphiPods) possiblePaths(position, podType int) [][]int {
-	if position/10 == podType/10 {
-		if position%podType == 2 || (position%podType == 1 && ap.typesPerPosition[position+1] == podType) {
-			return [][]int{}
+// type amphiPods struct {
+// 	space    floor
+// 	distance int
+// }
+
+// type path struct {
+// 	start, end, podType int
+// }
+
+// func (p path) cost() int {
+// 	return int(math.Pow10(p.podType/10-1)) * p.distance()
+// }
+
+// func (p path) distance() int {
+// 	return len(p.steps())
+// }
+
+// func (ap amphiPods) possiblePaths(start, podType int) (paths []path) {
+// 	defer timeTrack(time.Now(), "possiblePaths")
+// 	paths = []path{}
+
+// 	// if pod is already at home
+// 	if start/10 == podType/10 {
+// 		if start%podType == 2 || (start%podType == 1 && ap.typesPerPosition[start+1] == podType) {
+
+// 			return
+// 		}
+// 	}
+
+// 	// in the hallway
+// 	if start <= 10 {
+// 		if (path{start, podType + 1, podType}).isClear(ap) {
+// 			paths = append(paths, path{start, podType + 1, podType})
+// 		}
+// 		if (path{start, podType + 2, podType}).isClear(ap) {
+// 			paths = append(paths, path{start, podType + 2, podType})
+// 		}
+
+// 		return
+// 	}
+// 	// in rooms
+// 	_, entryRoomOccupied := ap.typesPerPosition[podType+1]
+// 	_, deepRoomOccupied := ap.typesPerPosition[podType+2]
+// 	// straight to the end
+// 	if !deepRoomOccupied {
+// 		if (path{start, podType + 2, podType}).isClear(ap) {
+// 			paths = append(paths, path{start, podType + 2, podType})
+// 		}
+
+// 		return
+// 	}
+// 	if !entryRoomOccupied && ap.typesPerPosition[podType+2] == podType {
+// 		if (path{start, podType + 1, podType}).isClear(ap) {
+// 			paths = append(paths, path{start, podType + 1, podType})
+// 		}
+
+// 		return
+// 	}
+// 	// moving out to the hallway
+// 	for _, end := range []int{0, 1, 3, 5, 7, 9, 10} {
+// 		if (path{start, end, podType}).isClear(ap) {
+// 			paths = append(paths, path{start, end, podType})
+// 		}
+// 	}
+
+// 	return
+// }
+
+// func (p path) isClear(ap amphiPods) bool {
+// 	walk := p.steps()
+
+// 	for endPosition := range ap.typesPerPosition {
+// 		for _, posPath := range walk {
+// 			if endPosition == posPath {
+// 				return false
+// 			}
+// 		}
+// 	}
+
+// 	return true
+// }
+
+// func (ap amphiPods) allHome() bool {
+// 	for position, podType := range ap.typesPerPosition {
+// 		if position/10 != podType/10 || position <= 10 {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
+
+// func (ap amphiPods) String() (out string) {
+// 	podStr := func(value int, exists bool) string {
+// 		if !exists {
+// 			return "."
+// 		}
+// 		switch value {
+// 		case 10:
+// 			return "A"
+// 		case 20:
+// 			return "B"
+// 		case 30:
+// 			return "C"
+// 		case 40:
+// 			return "D"
+// 		}
+// 		panic("unknown type: Strin()")
+// 	}
+// 	out = "#############\n"
+// 	out += "#"
+// 	for i := 0; i < 11; i++ {
+// 		val, exists := ap.typesPerPosition[i]
+// 		out += podStr(val, exists)
+// 	}
+// 	out += "#\n###"
+// 	for _, pos := range []int{11, 21, 31, 41} {
+// 		val, exists := ap.typesPerPosition[pos]
+// 		out += podStr(val, exists) + "#"
+// 	}
+// 	out += "##\n  #"
+// 	for _, pos := range []int{12, 22, 32, 42} {
+// 		val, exists := ap.typesPerPosition[pos]
+// 		out += podStr(val, exists) + "#"
+// 	}
+// 	out += "  \n  #########"
+
+// 	return
+// }
+
+// type priorityQueue struct {
+// 	queue []*amphiPods
+// }
+
+// func (pq priorityQueue) len() int {
+// 	return len(pq.queue)
+// }
+
+// func (pq *priorityQueue) push(item *amphiPods) {
+// 	defer timeTrack(time.Now(), "priority queue push")
+// 	pq.queue = append(pq.queue, item)
+// 	sort.Slice(pq.queue, func(i, j int) bool { return pq.queue[i].movingPod.cost() > pq.queue[j].movingPod.cost() })
+// }
+
+// func (pq *priorityQueue) pop() (item *amphiPods) {
+// 	defer timeTrack(time.Now(), "priority queue pop")
+// 	item = pq.queue[len(pq.queue)-1]
+// 	pq.queue[len(pq.queue)-1] = nil
+// 	pq.queue = pq.queue[:len(pq.queue)-1]
+// 	return
+// }
+
+// func neighbours(ap amphiPods) (nb []*amphiPods) {
+// 	defer timeTrack(time.Now(), "neighbours")
+// 	for position, podType := range ap.typesPerPosition {
+// 		moves := ap.possiblePaths(position, podType)
+// 		for _, path := range moves {
+// 			candidate := amphiPods{
+// 				make(map[int]int),
+// 				path,
+// 				math.MaxInt,
+// 			}
+// 			for otherPos, otherType := range ap.typesPerPosition {
+// 				candidate.typesPerPosition[otherPos] = otherType
+// 			}
+
+// 			delete(candidate.typesPerPosition, position)
+// 			candidate.typesPerPosition[path.end] = podType
+// 			nb = append(nb, &candidate)
+// 		}
+// 	}
+
+// 	return
+// }
+
+// func dijkstra(start *amphiPods) (distance int) {
+// 	next := priorityQueue{}
+// 	next.push(start)
+
+// 	for next.len() > 0 {
+// 		current := next.pop()
+
+// 		validNeighbours := neighbours(*current)
+
+// 		fmt.Println(current.distance, next.len(), len(validNeighbours))
+// 		fmt.Println(current)
+// 		for _, neighbour := range validNeighbours {
+// 			newDistance := current.distance + neighbour.movingPod.cost()
+
+// 			if newDistance < neighbour.distance {
+// 				neighbour.distance = newDistance
+
+// 				if neighbour.allHome() {
+// 					fmt.Println("******")
+// 					fmt.Println(neighbour.distance)
+// 					fmt.Println(neighbour)
+// 					return neighbour.distance
+// 				}
+
+// 				next.push(neighbour)
+// 			}
+// 		}
+// 	}
+
+// 	panic("no route found")
+// }
+
+type floor [3][11]byte
+
+func (f floor) copySpace(eraseX, eraseY int) floor {
+	newSpace := floor{}
+
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			if f[y][x] != 0 {
+				newSpace[y][x] = f[y][x]
+			}
 		}
 	}
 
-	possibleMoveIns := map[int]map[int][][]int{
-		10: {
-			0:  {{1, 2, 11}, {1, 2, 11, 12}},
-			1:  {{2, 11}, {2, 11, 12}},
-			3:  {{2, 11}, {2, 11, 12}},
-			5:  {{4, 3, 2, 11}, {4, 3, 2, 11, 12}},
-			7:  {{6, 5, 4, 3, 2, 11}, {6, 5, 4, 3, 2, 11, 12}},
-			9:  {{8, 76, 5, 4, 3, 2, 11}, {8, 7, 6, 5, 4, 3, 2, 11, 12}},
-			10: {{9, 8, 76, 5, 4, 3, 2, 11}, {9, 8, 7, 6, 5, 4, 3, 2, 11, 12}}},
-		20: {
-			0:  {{1, 2, 3, 4, 21}, {1, 2, 3, 4, 21, 22}},
-			1:  {{2, 3, 4, 21}, {2, 3, 4, 21, 22}},
-			3:  {{4, 21}, {4, 21, 22}},
-			5:  {{4, 21}, {4, 21, 22}},
-			7:  {{6, 5, 4, 21}, {6, 5, 4, 21, 22}},
-			9:  {{8, 7, 6, 5, 4, 21}, {8, 7, 6, 5, 4, 21, 22}},
-			10: {{9, 8, 7, 6, 5, 4, 21}, {9, 8, 7, 6, 5, 4, 21, 22}}},
-		30: {
-			0:  {{1, 2, 3, 4, 5, 6, 31}, {1, 2, 3, 4, 5, 6, 31, 32}},
-			1:  {{2, 3, 4, 5, 6, 31}, {2, 3, 4, 5, 6, 31, 32}},
-			3:  {{4, 5, 6, 31}, {4, 5, 6, 31, 32}},
-			5:  {{6, 31}, {6, 31, 32}},
-			7:  {{6, 31}, {6, 31, 32}},
-			9:  {{8, 7, 6, 31}, {8, 7, 6, 31, 32}},
-			10: {{9, 8, 7, 6, 31}, {9, 8, 7, 6, 31, 32}}},
-		40: {
-			0:  {{1, 2, 3, 4, 5, 6, 7, 8, 41}, {1, 2, 3, 4, 5, 6, 7, 8, 41, 42}},
-			1:  {{2, 3, 4, 5, 6, 7, 8, 41}, {2, 3, 4, 5, 6, 7, 8, 41, 42}},
-			3:  {{4, 5, 6, 7, 8, 41}, {4, 5, 6, 7, 8, 41, 42}},
-			5:  {{6, 7, 8, 41}, {6, 7, 8, 41, 42}},
-			7:  {{8, 41}, {8, 41, 42}},
-			9:  {{8, 41}, {8, 41, 42}},
-			10: {{9, 8, 41}, {9, 8, 41, 42}}},
-	}
-	possibleMoveOuts := map[int][][]int{
-		12: {
-			{11, 2, 1, 0},
-			{11, 2, 1},
-			{11, 2, 3},
-			{11, 2, 3, 4, 5},
-			{11, 2, 3, 4, 5, 6, 7},
-			{11, 2, 3, 4, 5, 6, 7, 8, 9},
-			{11, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
-		11: {
-			{2, 1, 0},
-			{2, 1},
-			{2, 3},
-			{2, 3, 4, 5},
-			{2, 3, 4, 5, 6, 7},
-			{2, 3, 4, 5, 6, 7, 8, 9},
-			{2, 3, 4, 5, 6, 7, 8, 9, 10}},
-		22: {
-			{21, 4, 3, 2, 1, 0},
-			{21, 4, 3, 2, 1},
-			{21, 4, 3},
-			{21, 4, 5},
-			{21, 4, 5, 6, 7},
-			{21, 4, 5, 6, 7, 8, 9},
-			{21, 4, 5, 6, 7, 8, 9, 10}},
-		21: {
-			{4, 3, 2, 1, 0},
-			{4, 3, 2, 1},
-			{4, 3},
-			{4, 5},
-			{4, 5, 6, 7},
-			{4, 5, 6, 7, 8, 9},
-			{4, 5, 6, 7, 8, 9, 10}},
-		32: {
-			{31, 6, 5, 4, 3, 2, 1, 0},
-			{31, 6, 5, 4, 3, 2, 1},
-			{31, 6, 5, 4, 3},
-			{31, 6, 5},
-			{31, 6, 7},
-			{31, 6, 7, 8, 9},
-			{31, 6, 7, 8, 9, 10}},
-		31: {
-			{6, 5, 4, 3, 2, 1, 0},
-			{6, 5, 4, 3, 2, 1},
-			{6, 5, 4, 3},
-			{6, 5},
-			{6, 7},
-			{6, 7, 8, 9},
-			{6, 7, 8, 9, 10}},
-		42: {
-			{41, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-			{41, 8, 7, 6, 5, 4, 3, 2, 1},
-			{41, 8, 7, 6, 5, 4, 3},
-			{41, 8, 7, 6, 5},
-			{41, 8, 7},
-			{41, 8, 9},
-			{41, 8, 9, 10}},
-		41: {
-			{8, 7, 6, 5, 4, 3, 2, 1, 0},
-			{8, 7, 6, 5, 4, 3, 2, 1},
-			{8, 7, 6, 5, 4, 3},
-			{8, 7, 6, 5},
-			{8, 7},
-			{8, 9},
-			{8, 9, 10}},
-	}
-	if position <= 10 {
-		return possibleMoveIns[podType][position]
-	}
-	return possibleMoveOuts[position]
+	newSpace[eraseY][eraseX] = 0
+
+	return newSpace
 }
 
-func (ap amphiPods) key() (k string) {
-	for i := 0; i < 43; i++ {
-		t, exists := ap.typesPerPosition[i]
-		if exists {
-			k += fmt.Sprintf("%d:%d,", i, t)
-		} else {
-			k += ".:.,"
+func (f floor) String() (out string) {
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			if y == 0 {
+				switch f[y][x] {
+				case 0:
+					out += "."
+				default:
+					out += string(f[y][x])
+				}
+			} else {
+				switch f[y][x] {
+				case 0:
+					if x%2 == 1 || x == 0 || x == 10 {
+						out += "#"
+					} else {
+						out += "."
+					}
+				default:
+					out += string(f[y][x])
+				}
+			}
 		}
+		out += "\n"
 	}
 
 	return
 }
 
-func (ap amphiPods) cost() int {
-	return int(math.Pow10(ap.typesPerPosition[ap.path[len(ap.path)-1]]/10-1)) * len(ap.path)
-}
-
-func (ap amphiPods) isClear() bool {
-	for position := range ap.typesPerPosition {
-		for _, posPath := range ap.path {
-			if position == posPath {
-				return false
-			}
-		}
-	}
-
-	if ap.path[len(ap.path)-1]%ap.typesPerPosition[ap.movedPodPosition] == 1 { // positions 11, 21, 31 and 41
-		for position, podType := range ap.typesPerPosition {
-			if position == ap.path[len(ap.path)-1]+1 {
-				return podType == ap.typesPerPosition[ap.movedPodPosition]
-			}
-		}
-		return false
-	}
-
+func (start floor) pathClear(end floor) bool {
 	return true
 }
 
-func (ap amphiPods) allHome() bool {
-	for position, podType := range ap.typesPerPosition {
-		if position/10 != podType/10 || position <= 10 {
-			return false
-		}
-	}
-	return true
-}
+// xx,yy
+// 00,00 01,00 02,00 03,00 04,00 05,00 06,00 07,00 08,00 09,00 10,00
+// ##### ##### 02,01 ##### 04,01 ##### 06,01 ##### 08,01 ##### #####
+// ##### ##### 02,02 ##### 04,02 ##### 06,02 ##### 08,02 ##### #####
+func (f floor) neighbours() (out []floor) {
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			// pod to be moved
+			if f[y][x] != 0 {
+				// in the rooms
+				if y > 0 {
+					// on the right place
+					if y == 2 && f[y][x] == byte('A'+(x/2-1)) {
+						continue
+					}
+					if y == 1 && f[y][x] == byte('A'+(x/2-1)) && f[y+1][x] == byte('A'+(x/2-1)) {
+						continue
+					}
+					// blocked
+					if y == 2 && f[y-1][x] != 0 {
+						continue
+					}
 
-func (ap amphiPods) String() (out string) {
-	podStr := func(value int, exists bool) string {
-		if !exists {
-			return "."
-		}
-		switch value {
-		case 10:
-			return "A"
-		case 20:
-			return "B"
-		case 30:
-			return "C"
-		case 40:
-			return "D"
-		}
-		panic("unknown type: Strin()")
-	}
-	out = "#############\n"
-	out += "#"
-	for i := 0; i < 11; i++ {
-		val, exists := ap.typesPerPosition[i]
-		out += podStr(val, exists)
-	}
-	out += "#\n###"
-	for _, pos := range []int{11, 21, 31, 41} {
-		val, exists := ap.typesPerPosition[pos]
-		out += podStr(val, exists) + "#"
-	}
-	out += "##\n  #"
-	for _, pos := range []int{12, 22, 32, 42} {
-		val, exists := ap.typesPerPosition[pos]
-		out += podStr(val, exists) + "#"
-	}
-	out += "  \n  #########"
-
-	return
-}
-
-type priorityQueue struct {
-	queue []*amphiPods
-}
-
-func (pq priorityQueue) len() int {
-	return len(pq.queue)
-}
-
-func (pq *priorityQueue) push(item *amphiPods) {
-	pq.queue = append(pq.queue, item)
-	sort.Slice(pq.queue, func(i, j int) bool { return pq.queue[i].cost() > pq.queue[j].cost() })
-}
-
-func (pq *priorityQueue) pop() (item *amphiPods) {
-	item = pq.queue[len(pq.queue)-1]
-	pq.queue[len(pq.queue)-1] = nil
-	pq.queue = pq.queue[:len(pq.queue)-1]
-	return
-}
-
-func neighbours(ap amphiPods) (nb []*amphiPods) {
-	for position, podType := range ap.typesPerPosition {
-		moves := ap.possiblePaths(position, podType)
-		for _, path := range moves {
-			candidate := amphiPods{
-				make(map[int]int),
-				position,
-				path,
-				math.MaxInt,
-			}
-			for otherPos, otherType := range ap.typesPerPosition {
-				candidate.typesPerPosition[otherPos] = otherType
-			}
-			if candidate.isClear() {
-				delete(candidate.typesPerPosition, position)
-				candidate.typesPerPosition[path[len(path)-1]] = podType
-				nb = append(nb, &candidate)
-			}
-		}
-	}
-
-	return
-}
-
-func dijkstra(start *amphiPods) (distance int) {
-	visited := make(map[string]int)
-	next := priorityQueue{}
-	visited[start.key()] = 0
-	next.push(start)
-
-	for next.len() > 0 {
-		current := next.pop()
-		dist, exists := visited[current.key()]
-		if exists {
-			current.distance = dist
-		}
-		fmt.Println(current.distance)
-		fmt.Println(current)
-
-		validNeighbours := neighbours(*current)
-		for _, neighbour := range validNeighbours {
-			dist, exists := visited[neighbour.key()]
-			if exists {
-				neighbour.distance = dist
-			}
-			newDistance := current.distance + neighbour.cost()
-
-			if newDistance < neighbour.distance {
-				neighbour.distance = newDistance
-				visited[neighbour.key()] = newDistance
-
-				if neighbour.allHome() {
-					fmt.Println("******")
-					fmt.Println(neighbour.distance)
-					fmt.Println(neighbour)
-					return neighbour.distance
+					for _, h := range []int{0, 1, 3, 5, 7, 9, 10} {
+						if f[0][h] == 0 {
+							nb := f.copySpace(x, y)
+							nb[0][h] = f[y][x]
+							out = append(out, nb)
+						}
+					}
 				}
 
-				next.push(neighbour)
+				// in the hallway or directly to room from other room
+				if f[2][(f[y][x]-'A'+1)*2] == 0 {
+					nb := f.copySpace(x, y)
+					nb[2][(f[y][x]-'A'+1)*2] = f[y][x]
+					out = append(out, nb)
+				}
+
+				if f[2][(f[y][x]-'A'+1)*2] == 0 {
+					nb := f.copySpace(x, y)
+					nb[1][(f[y][x]-'A'+1)*2] = f[y][x]
+					out = append(out, nb)
+				}
 			}
 		}
 	}
 
-	panic("no route found")
+	return
+}
+
+func processInput(lines []string) (f floor) {
+	for _, l := range []int{2, 3} {
+		for idx, c := range lines[l] {
+			switch c {
+			case '#':
+			case ' ':
+				continue
+			default:
+				f[l-1][idx-1] = byte(c)
+			}
+		}
+	}
+
+	return
 }
 
 // Part 1
@@ -316,9 +346,20 @@ func dijkstra(start *amphiPods) (distance int) {
 //   #########
 
 func part1() {
-	fmt.Printf("%d\n", dijkstra(&amphiPods{
-		typesPerPosition: map[int]int{12: 40, 11: 10, 22: 10, 21: 30, 32: 40, 31: 20, 42: 20, 41: 30},
-	}))
+	lines := readInput("input.txt")
+
+	start := processInput(lines)
+
+	fmt.Println(start)
+
+	nbs := processInput(lines).neighbours()
+
+	fmt.Printf("**** %d\n", len(nbs))
+	fmt.Println()
+
+	for _, nb := range nbs {
+		fmt.Println(nb)
+	}
 }
 
 func part2() {
