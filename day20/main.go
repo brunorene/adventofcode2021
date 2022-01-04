@@ -14,94 +14,142 @@ type coords struct {
 	x, y int
 }
 
-type imageGrid struct {
-	algorithm []int
-	image     map[coords]int
-	cellSum   map[coords]int
+type grid struct {
+	algorithm              [512]bool
+	cells                  map[coords]bool
+	minX, maxX, minY, maxY int
 }
 
-func calcAlgorithm(lines []string) int {
-	var algorithm []int
-	for _, c := range lines[0] {
-		switch c {
-		case '.':
-			algorithm = append(algorithm, 0)
-		case '#':
-			algorithm = append(algorithm, 1)
+func (g grid) swapGrid(frameValue bool) (newG grid) {
+	newG.cells = make(map[coords]bool)
+	newG.maxX = 0
+	newG.maxY = 0
+	newG.minX = math.MaxInt
+	newG.minY = math.MaxInt
+	for y := g.minY; y <= g.maxY; y++ {
+		for x := g.minX; x <= g.maxX; x++ {
+			var algIndexString string
+			for _, offsetY := range []int{-1, 0, 1} {
+				for _, offsetX := range []int{-1, 0, 1} {
+					if g.cells[coords{x + offsetX, y + offsetY}] {
+						algIndexString += "1"
+					} else {
+						algIndexString += "0"
+					}
+
+				}
+			}
+			algIndex, err := strconv.ParseInt(algIndexString, 2, 16)
+			check(err)
+
+			newG.algorithm = g.algorithm
+
+			if newG.algorithm[algIndex] {
+				if x < newG.minX {
+					newG.minX = x
+				}
+				if y < newG.minY {
+					newG.minY = y
+				}
+				if x > newG.maxX {
+					newG.maxX = x
+				}
+				if y > newG.maxY {
+					newG.maxY = y
+				}
+				newG.cells[coords{x, y}] = true
+			}
+		}
+	}
+	newG.minX--
+	newG.minY--
+	newG.maxX++
+	newG.maxY++
+	if frameValue {
+		for x := newG.minX - 1; x <= newG.maxX+1; x++ {
+			newG.cells[coords{x, newG.minY}] = true
+			newG.cells[coords{x, newG.minY - 1}] = true
+			newG.cells[coords{x, newG.maxY}] = true
+			newG.cells[coords{x, newG.maxY + 1}] = true
+		}
+		for y := newG.minY - 1; y <= newG.maxY+1; y++ {
+			newG.cells[coords{newG.minX, y}] = true
+			newG.cells[coords{newG.minX - 1, y}] = true
+			newG.cells[coords{newG.maxX, y}] = true
+			newG.cells[coords{newG.maxX + 1, y}] = true
 		}
 	}
 
-	image := make(map[coords]int)
+	return
+}
+
+func (g grid) String() (str string) {
+	for y := g.minY - 2; y < g.maxY+2; y++ {
+		for x := g.minX - 2; x < g.maxX+2; x++ {
+			if g.cells[coords{x, y}] {
+				str += "#"
+			} else {
+				str += "."
+			}
+		}
+		str += "\n"
+	}
+
+	return
+}
+
+func processInput(lines []string) (g grid) {
+	for idx, c := range lines[0] {
+		g.algorithm[idx] = c == '#'
+	}
+
+	g.cells = make(map[coords]bool)
+	g.minX = -1
+	g.minY = -1
+	g.maxY = len(lines[2:])
+	g.maxX = len(lines[2])
+
 	for y, line := range lines[2:] {
 		for x, c := range line {
 			if c == '#' {
-				// where this bit will be used
-				image[coords{x, y}] = 1
+				g.cells[coords{x, y}] = true
 			}
 		}
 	}
 
-	// 1st time
-	for y := -10; y < 110; y++ {
-		for x := -10; x < 110; x++ {
-			cellSum := image[coords{x - 1, y - 1}] * int(math.Pow(2, 8))
-			cellSum += image[coords{x, y - 1}] * int(math.Pow(2, 7))
-			cellSum += image[coords{x + 1, y - 1}] * int(math.Pow(2, 6))
-			cellSum += image[coords{x - 1, y}] * int(math.Pow(2, 5))
-			cellSum += image[coords{x, y}] * int(math.Pow(2, 4))
-			cellSum += image[coords{x + 1, y}] * int(math.Pow(2, 3))
-			cellSum += image[coords{x - 1, y + 1}] * int(math.Pow(2, 2))
-			cellSum += image[coords{x, y + 1}] * int(math.Pow(2, 1))
-			cellSum += image[coords{x + 1, y + 1}] * int(math.Pow(2, 0))
-
-			image[coords{x, y}] = algorithm[cellSum]
-		}
-	}
-
-	// for y := -11; y < 111; y++ {
-	// 	for x := -11; x < 111; x++ {
-	// 		if x == -11 || y == -11 || x == 111 || y == 111 {
-	// 			image[coords{x, y}] = 1
-	// 		}
-	// 	}
-	// }
-
-	// 2nd time
-	for y := -10; y < 110; y++ {
-		for x := -10; x < 110; x++ {
-			cellSum := image[coords{x - 1, y - 1}]*int(math.Pow(2, 0)) +
-				image[coords{x, y - 1}]*int(math.Pow(2, 1)) +
-				image[coords{x + 1, y - 1}]*int(math.Pow(2, 2)) +
-				image[coords{x - 1, y}]*int(math.Pow(2, 3)) +
-				image[coords{x, y}]*int(math.Pow(2, 4)) +
-				image[coords{x + 1, y}]*int(math.Pow(2, 5)) +
-				image[coords{x - 1, y + 1}]*int(math.Pow(2, 6)) +
-				image[coords{x, y + 1}]*int(math.Pow(2, 7)) +
-				image[coords{x + 1, y + 1}]*int(math.Pow(2, 8))
-
-			image[coords{x, y}] = algorithm[cellSum]
-		}
-	}
-
-	// count lights
-	var sum int
-	for _, v := range image {
-		sum += v
-	}
-
-	return sum
+	return
 }
 
 func part1() {
 	lines := readInput("input.txt")
 
-	fmt.Printf("%d\n", calcAlgorithm(lines))
+	g := processInput(lines)
+
+	g1 := g.swapGrid(true)
+	fmt.Println(g1)
+	fmt.Println()
+
+	g2 := g1.swapGrid(false)
+
+	fmt.Println(g2)
+	fmt.Println(len(g2.cells))
 }
 
 func part2() {
 	lines := readInput("input.txt")
 
-	fmt.Printf("%d\n", len(lines))
+	g := processInput(lines)
+	fmt.Println(g)
+
+	for i := 0; i < 25; i++ {
+		g1 := g.swapGrid(true)
+		fmt.Println(g1)
+		g2 := g1.swapGrid(false)
+		fmt.Println(g2)
+		g = g2
+	}
+
+	fmt.Println(len(g.cells))
 }
 
 func main() {

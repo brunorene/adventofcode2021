@@ -10,11 +10,6 @@ import (
 	"strings"
 )
 
-// func timeTrack(start time.Time, name string) {
-// 	elapsed := time.Since(start)
-// 	fmt.Printf("%s took %s\n", name, elapsed)
-// }
-
 type priorityQueue struct {
 	queue []floor
 }
@@ -34,9 +29,10 @@ func (pq *priorityQueue) pop() (item floor) {
 	return
 }
 
-func dijkstra(start floor) (distance int) {
+func dijkstra(start floor) int {
 	next := priorityQueue{}
 	next.push(start)
+	start.origin = start.grid
 	cacheDistance := make(map[string]int)
 	var exists bool
 
@@ -45,9 +41,13 @@ func dijkstra(start floor) (distance int) {
 
 		validNeighbours := current.neighbours()
 
-		fmt.Println(current.distance, next.len(), len(validNeighbours))
+		fmt.Println(current.level, current.distance, next.len(), len(validNeighbours))
 		fmt.Println(current)
+		bufio.NewReader(os.Stdin).ReadBytes('\n')
 		for _, neighbour := range validNeighbours {
+			neighbour.level = current.level + 1
+			neighbour.origin = current.grid
+
 			neighbour.distance, exists = cacheDistance[neighbour.hash()]
 			if !exists {
 				neighbour.distance = math.MaxInt
@@ -60,8 +60,7 @@ func dijkstra(start floor) (distance int) {
 				cacheDistance[neighbour.hash()] = newDistance
 
 				if neighbour.allHome() {
-					fmt.Println("******")
-					fmt.Println(neighbour.distance)
+					fmt.Println(neighbour.distance, next.len())
 					fmt.Println(neighbour)
 					return neighbour.distance
 				}
@@ -75,9 +74,11 @@ func dijkstra(start floor) (distance int) {
 }
 
 type floor struct {
+	origin   [3][11]byte
 	grid     [3][11]byte
 	cost     int
 	distance int
+	level    int
 }
 
 func (f floor) hash() (value string) {
@@ -108,6 +109,28 @@ func (f floor) copySpace(eraseX, eraseY int) floor {
 
 func (f floor) String() (out string) {
 	for y := 0; y < 3; y++ {
+		for x := 0; x < 11; x++ {
+			if y == 0 {
+				switch f.origin[y][x] {
+				case 0:
+					out += "."
+				default:
+					out += string(f.origin[y][x])
+				}
+			} else {
+				switch f.origin[y][x] {
+				case 0:
+					if x%2 == 1 || x == 0 || x == 10 {
+						out += "#"
+					} else {
+						out += "."
+					}
+				default:
+					out += string(f.origin[y][x])
+				}
+			}
+		}
+		out += "  "
 		for x := 0; x < 11; x++ {
 			if y == 0 {
 				switch f.grid[y][x] {
@@ -184,15 +207,16 @@ func (f floor) pathClear(origin floor) bool {
 		return false
 	}
 
-	step := 1
-	if x2 < x1 {
-		step = -1
-	}
+	if x1 != x2 {
+		step := 1
+		if x2 < x1 {
+			step = -1
+		}
 
-	fmt.Printf("1: %d,%d 2: %d,%d step: %d\n", x1, y1, x2, y2, step)
-	for x := x1 + step; x != x2; x += step {
-		if origin.grid[0][x] != 0 {
-			return false
+		for x := x1 + step; x != x2; x += step {
+			if origin.grid[0][x] != 0 {
+				return false
+			}
 		}
 	}
 
@@ -212,7 +236,7 @@ func (f *floor) calculateCost(origin floor) int {
 		return 0
 	}
 
-	f.cost = int(math.Abs(float64(x2-x1))+math.Abs(float64(y2-y1))) *
+	f.cost = (int(math.Abs(float64(x2-x1))) + y1 + y2) *
 		int(math.Pow10(int(origin.grid[y1][x1]-'A')))
 
 	return f.cost
@@ -227,6 +251,31 @@ func (f floor) neighbours() (out []floor) {
 		for x := 0; x < 11; x++ {
 			// pod to be moved
 			if f.grid[y][x] != 0 {
+
+				landingIndex := int((f.grid[y][x] - 'A' + 1) * 2)
+
+				// in the hallway or directly to room from other room
+				if x != landingIndex && f.grid[2][landingIndex] == 0 {
+					nb := f.copySpace(x, y)
+					nb.grid[2][landingIndex] = f.grid[y][x]
+					if nb.pathClear(f) {
+						out = append(out, nb)
+
+						return
+					}
+				}
+
+				if x != landingIndex && f.grid[1][landingIndex] == 0 &&
+					f.grid[2][landingIndex] == f.grid[y][x] {
+					nb := f.copySpace(x, y)
+					nb.grid[1][landingIndex] = f.grid[y][x]
+					if nb.pathClear(f) {
+						out = append(out, nb)
+
+						return
+					}
+				}
+
 				// in the rooms
 				if y > 0 {
 					// on the right place
@@ -249,23 +298,6 @@ func (f floor) neighbours() (out []floor) {
 								out = append(out, nb)
 							}
 						}
-					}
-				}
-
-				// in the hallway or directly to room from other room
-				if f.grid[2][(f.grid[y][x]-'A'+1)*2] == 0 {
-					nb := f.copySpace(x, y)
-					nb.grid[2][(f.grid[y][x]-'A'+1)*2] = f.grid[y][x]
-					if nb.pathClear(f) {
-						out = append(out, nb)
-					}
-				}
-
-				if f.grid[2][(f.grid[y][x]-'A'+1)*2] == 0 {
-					nb := f.copySpace(x, y)
-					nb.grid[1][(f.grid[y][x]-'A'+1)*2] = f.grid[y][x]
-					if nb.pathClear(f) {
-						out = append(out, nb)
 					}
 				}
 			}
