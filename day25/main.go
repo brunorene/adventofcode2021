@@ -78,8 +78,6 @@ func (s seafloor) moveCucumbers() seafloor {
 	}
 
 	southS := eastS.copy()
-	fmt.Println("east S")
-	fmt.Println(eastS)
 
 	// south
 	for y, row := range eastS {
@@ -94,9 +92,9 @@ func (s seafloor) moveCucumbers() seafloor {
 		}
 	}
 
-	fmt.Println(eastS)
+	fmt.Println(southS)
 
-	return eastS
+	return southS
 }
 
 func findStop(lines []string) int {
@@ -108,11 +106,13 @@ func findStop(lines []string) int {
 	for {
 		other := s.moveCucumbers()
 
+		step++
+
 		if s.equals(other) {
 			break
 		}
 
-		step++
+		s = other
 	}
 
 	return step
