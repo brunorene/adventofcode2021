@@ -32,7 +32,6 @@ func (pq *priorityQueue) pop() (item floor) {
 func dijkstra(start floor) int {
 	next := priorityQueue{}
 	next.push(start)
-	start.origin = start.grid
 	cacheDistance := make(map[string]int)
 	var exists bool
 
@@ -46,7 +45,6 @@ func dijkstra(start floor) int {
 		bufio.NewReader(os.Stdin).ReadBytes('\n')
 		for _, neighbour := range validNeighbours {
 			neighbour.level = current.level + 1
-			neighbour.origin = current.grid
 
 			neighbour.distance, exists = cacheDistance[neighbour.hash()]
 			if !exists {
@@ -73,52 +71,61 @@ func dijkstra(start floor) int {
 	panic("no route found")
 }
 
-type floor struct {
-	origin   [3][11]byte
-	grid     [3][11]byte
-	cost     int
-	distance int
-	level    int
+func allPositions() [][2]int {
+	return append(hallwayPositions(), roomPositions()...)
 }
 
-func (f floor) hash() (value string) {
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 11; x++ {
-			value += fmt.Sprintf("%d,", f.grid[y][x])
-		}
+func hallwayPositions() [][2]int {
+	return [][2]int{
+		{0, 0}, {1, 0}, {3, 0}, {5, 0}, {7, 0}, {9, 0}, {10, 0},
+	}
+}
+
+func roomPositions() [][2]int {
+	return [][2]int{
+		{2, 1}, {2, 2}, {4, 1}, {4, 2}, {6, 1}, {6, 2}, {8, 1}, {8, 2},
+	}
+}
+
+type floor struct {
+	locations map[[2]int]byte
+	cost      int
+	distance  int
+	level     int
+}
+
+func (f floor) clone() (other floor) {
+	other = floor{
+		locations: make(map[[2]int]byte),
+	}
+
+	for _, pos := range allPositions() {
+		other.locations[pos] = f.locations[pos]
 	}
 
 	return
 }
 
-func (f floor) copySpace(eraseX, eraseY int) floor {
-	newFloor := floor{}
-
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 11; x++ {
-			if f.grid[y][x] != 0 {
-				newFloor.grid[y][x] = f.grid[y][x]
-			}
-		}
+func (f floor) hash() (value string) {
+	for _, pos := range allPositions() {
+		value += fmt.Sprintf("%d,", f.locations[pos])
 	}
 
-	newFloor.grid[eraseY][eraseX] = 0
-
-	return newFloor
+	return
 }
 
 func (f floor) String() (out string) {
 	for y := 0; y < 3; y++ {
 		for x := 0; x < 11; x++ {
 			if y == 0 {
-				switch f.origin[y][x] {
+				switch f.locations[[2]int{x, y}] {
 				case 0:
 					out += "."
 				default:
-					out += string(f.origin[y][x])
+					out += string(f.locations[[2]int{x, y}])
 				}
 			} else {
-				switch f.origin[y][x] {
+				switch f.locations[[2]int{x, y}] {
 				case 0:
 					if x%2 == 1 || x == 0 || x == 10 {
 						out += "#"
@@ -126,29 +133,7 @@ func (f floor) String() (out string) {
 						out += "."
 					}
 				default:
-					out += string(f.origin[y][x])
-				}
-			}
-		}
-		out += "  "
-		for x := 0; x < 11; x++ {
-			if y == 0 {
-				switch f.grid[y][x] {
-				case 0:
-					out += "."
-				default:
-					out += string(f.grid[y][x])
-				}
-			} else {
-				switch f.grid[y][x] {
-				case 0:
-					if x%2 == 1 || x == 0 || x == 10 {
-						out += "#"
-					} else {
-						out += "."
-					}
-				default:
-					out += string(f.grid[y][x])
+					out += string(f.locations[[2]int{x, y}])
 				}
 			}
 		}
@@ -159,87 +144,14 @@ func (f floor) String() (out string) {
 }
 
 func (f floor) allHome() bool {
-	return f.grid[1][2] == 'A' &&
-		f.grid[2][2] == 'A' &&
-		f.grid[1][4] == 'B' &&
-		f.grid[2][4] == 'B' &&
-		f.grid[1][6] == 'C' &&
-		f.grid[2][6] == 'C' &&
-		f.grid[1][8] == 'D' &&
-		f.grid[2][8] == 'D'
-}
-
-func (f floor) diff(origin floor) (x1, y1, x2, y2 int, isDiff bool) {
-	isDiff = true
-	count := 0
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 11; x++ {
-			if origin.grid[y][x] != 0 && f.grid[y][x] == 0 { // start
-				x1 = x
-				y1 = y
-				count++
-			}
-			if origin.grid[y][x] == 0 && f.grid[y][x] != 0 { // end
-				x2 = x
-				y2 = y
-				count++
-			}
-			if count == 2 {
-				return
-			}
-		}
-	}
-
-	isDiff = false
-
-	return
-}
-
-func (f floor) pathClear(origin floor) bool {
-	x1, y1, x2, y2, isDiff := f.diff(origin)
-
-	if !isDiff {
-		return false
-	}
-
-	// go up
-	if y1 == 2 && origin.grid[1][x1] != 0 {
-		return false
-	}
-
-	if x1 != x2 {
-		step := 1
-		if x2 < x1 {
-			step = -1
-		}
-
-		for x := x1 + step; x != x2; x += step {
-			if origin.grid[0][x] != 0 {
-				return false
-			}
-		}
-	}
-
-	if y2 == 2 {
-		if origin.grid[1][x2] != 0 {
-			return false
-		}
-	}
-
-	return origin.grid[y2][x2] == 0
-}
-
-func (f *floor) calculateCost(origin floor) int {
-	x1, y1, x2, y2, isDiff := f.diff(origin)
-
-	if !isDiff {
-		return 0
-	}
-
-	f.cost = (int(math.Abs(float64(x2-x1))) + y1 + y2) *
-		int(math.Pow10(int(origin.grid[y1][x1]-'A')))
-
-	return f.cost
+	return f.locations[[2]int{2, 1}] == 'A' &&
+		f.locations[[2]int{2, 2}] == 'A' &&
+		f.locations[[2]int{4, 1}] == 'B' &&
+		f.locations[[2]int{4, 2}] == 'B' &&
+		f.locations[[2]int{6, 1}] == 'C' &&
+		f.locations[[2]int{6, 2}] == 'C' &&
+		f.locations[[2]int{8, 1}] == 'D' &&
+		f.locations[[2]int{8, 2}] == 'D'
 }
 
 // xx,yy
@@ -247,6 +159,54 @@ func (f *floor) calculateCost(origin floor) int {
 // ##### ##### 02,01 ##### 04,01 ##### 06,01 ##### 08,01 ##### #####
 // ##### ##### 02,02 ##### 04,02 ##### 06,02 ##### 08,02 ##### #####
 func (f floor) neighbours() (out []floor) {
+	for _, xy := range hallwayPositions() {
+		if f.locations[xy] != 0 {
+			landingX := int((f.locations[xy] - 'A' + 1) * 2)
+
+			next := f.clone()
+
+			for _, y := range []int{2, 1} {
+				if f.locations[[2]int{landingX, y}] == 0 {
+					next.locations[[2]int{landingX, y}] = f.locations[xy]
+					next.locations[xy] = 0
+					out = append(out, next)
+
+					break
+				}
+			}
+		}
+	}
+
+		for _, xy := range roomPositions() {
+			if f.locations[xy] != 0 {
+				landingX := int((f.locations[xy] - 'A' + 1) * 2)
+
+				if landingX == xy[0] && f.locations[[2]int{landingX, 2}] == f.locations[xy] {
+					continue
+				}
+	
+				next := f.clone()
+
+				var straight2Room bool
+
+				for _, y := range []int{2, 1} {
+					if f.locations[[2]int{landingX, y}] == 0 {
+						next.locations[[2]int{landingX, y}] = f.locations[xy]
+						next.locations[xy] = 0
+						out = append(out, next)
+
+						straight2Room = true
+	
+						break
+					}
+				}
+
+
+	
+			}
+		}	
+	}
+
 	for y := 0; y < 3; y++ {
 		for x := 0; x < 11; x++ {
 			// pod to be moved
