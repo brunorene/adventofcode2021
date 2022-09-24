@@ -154,6 +154,30 @@ func (f floor) allHome() bool {
 		f.locations[[2]int{8, 2}] == 'D'
 }
 
+func (f floor) pathClear(src, dst [2]int) bool {
+	count := 0
+	for _, xy := range allPositions() {
+		if xy[0] > src[0] && xy[0] <= dst[0] &&
+			xy[1] >= src[1] && xy[1] <= dst[1] {
+			count++
+		}
+	}
+
+	if count > 0 {
+		return false
+	}
+
+	return true
+}
+
+func (f floor) move(src, dst [2]int) floor {
+	next := f.clone()
+	next.locations[dst] = f.locations[src]
+	next.locations[src] = 0
+
+	return next
+}
+
 // xx,yy
 // 00,00 01,00 02,00 03,00 04,00 05,00 06,00 07,00 08,00 09,00 10,00
 // ##### ##### 02,01 ##### 04,01 ##### 06,01 ##### 08,01 ##### #####
@@ -163,13 +187,9 @@ func (f floor) neighbours() (out []floor) {
 		if f.locations[xy] != 0 {
 			landingX := int((f.locations[xy] - 'A' + 1) * 2)
 
-			next := f.clone()
-
 			for _, y := range []int{2, 1} {
-				if f.locations[[2]int{landingX, y}] == 0 {
-					next.locations[[2]int{landingX, y}] = f.locations[xy]
-					next.locations[xy] = 0
-					out = append(out, next)
+				if f.pathClear(xy, [2]int{landingX, y}) {
+					out = append(out, f.move(xy, [2]int{landingX, y}))
 
 					break
 				}
@@ -177,87 +197,30 @@ func (f floor) neighbours() (out []floor) {
 		}
 	}
 
-		for _, xy := range roomPositions() {
-			if f.locations[xy] != 0 {
-				landingX := int((f.locations[xy] - 'A' + 1) * 2)
+	for _, xy := range roomPositions() {
+		if f.locations[xy] != 0 {
+			landingX := int((f.locations[xy] - 'A' + 1) * 2)
 
-				if landingX == xy[0] && f.locations[[2]int{landingX, 2}] == f.locations[xy] {
-					continue
-				}
-	
-				next := f.clone()
-
-				var straight2Room bool
-
-				for _, y := range []int{2, 1} {
-					if f.locations[[2]int{landingX, y}] == 0 {
-						next.locations[[2]int{landingX, y}] = f.locations[xy]
-						next.locations[xy] = 0
-						out = append(out, next)
-
-						straight2Room = true
-	
-						break
-					}
-				}
-
-
-	
+			if landingX == xy[0] && f.locations[[2]int{landingX, 2}] == f.locations[xy] {
+				continue
 			}
-		}	
-	}
 
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 11; x++ {
-			// pod to be moved
-			if f.grid[y][x] != 0 {
+			var straight2Room bool
 
-				landingIndex := int((f.grid[y][x] - 'A' + 1) * 2)
+			for _, y := range []int{2, 1} {
+				if f.pathClear(xy, [2]int{landingX, y}) {
+					out = append(out, f.move(xy, [2]int{landingX, y}))
 
-				// in the hallway or directly to room from other room
-				if x != landingIndex && f.grid[2][landingIndex] == 0 {
-					nb := f.copySpace(x, y)
-					nb.grid[2][landingIndex] = f.grid[y][x]
-					if nb.pathClear(f) {
-						out = append(out, nb)
+					straight2Room = true
 
-						return
-					}
+					break
 				}
+			}
 
-				if x != landingIndex && f.grid[1][landingIndex] == 0 &&
-					f.grid[2][landingIndex] == f.grid[y][x] {
-					nb := f.copySpace(x, y)
-					nb.grid[1][landingIndex] = f.grid[y][x]
-					if nb.pathClear(f) {
-						out = append(out, nb)
-
-						return
-					}
-				}
-
-				// in the rooms
-				if y > 0 {
-					// on the right place
-					if y == 2 && f.grid[y][x] == byte('A'+(x/2-1)) {
-						continue
-					}
-					if y == 1 && f.grid[y][x] == byte('A'+(x/2-1)) && f.grid[y+1][x] == byte('A'+(x/2-1)) {
-						continue
-					}
-					// blocked
-					if y == 2 && f.grid[y-1][x] != 0 {
-						continue
-					}
-
-					for _, h := range []int{0, 1, 3, 5, 7, 9, 10} {
-						if f.grid[0][h] == 0 {
-							nb := f.copySpace(x, y)
-							nb.grid[0][h] = f.grid[y][x]
-							if nb.pathClear(f) {
-								out = append(out, nb)
-							}
-						}
+			if !straight2Room {
+				for _, hallway := range hallwayPositions() {
+					if f.pathClear(xy, hallway) {
+						out = append(out, f.move(xy, hallway))
 					}
 				}
 			}
@@ -275,7 +238,7 @@ func processInput(lines []string) (f floor) {
 			case ' ':
 				continue
 			default:
-				f.grid[l-1][idx-1] = byte(c)
+				f.locations[[2]int{l - 1, idx - 1}] = byte(c)
 			}
 		}
 	}
